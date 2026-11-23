@@ -1,78 +1,354 @@
-# USUPORT – Canal do Usuário
+# USUPORT | Canal do Usuário
 
-Banco de dados e aplicação para registrar e acompanhar os chamados da USUPORT (Associação de Usuários dos Portos da Bahia), ligados aos acidentes da base da PRF.
+Sistema de banco de dados e aplicação para consulta e acompanhamento de chamados da **USUPORT (Associação de Usuários dos Portos da Bahia)**, relacionados aos acidentes registrados na base de dados da Polícia Rodoviária Federal (PRF).
 
-Trabalho A3 – Banco de Dados – UNIFACS.
+O projeto foi desenvolvido como parte do **Trabalho A3 da disciplina Banco de Dados, na UNIFACS**, com foco na modelagem relacional, normalização, integridade referencial e manipulação de dados utilizando SQL.
+
+## Objetivo do projeto
+
+Desenvolver uma estrutura de banco de dados capaz de integrar informações sobre acidentes rodoviários e solicitações de atendimento, permitindo organizar, consultar e analisar os registros relacionados ao canal de atendimento da USUPORT.
+
+O sistema reúne informações de associados, atendentes, chamados, histórico de atendimento e acidentes, oferecendo consultas que relacionam os dados operacionais com os registros da PRF.
 
 ## Arquitetura
 
+A solução utiliza uma arquitetura distribuída, na qual a aplicação é executada no Windows e o banco de dados permanece hospedado em uma máquina virtual Linux.
+
+```text
+┌──────────────────────────────┐
+│          WINDOWS             │
+│                              │
+│  Navegador + Streamlit       │
+│  Python + PyMySQL            │
+│                              │
+└──────────────┬───────────────┘
+               │
+               │ TCP / Porta 3306
+               │ Rede local
+               │
+┌──────────────▼───────────────┐
+│          VIRTUALBOX          │
+│                              │
+│  Alpine Linux                │
+│  MariaDB                     │
+│                              │
+│  Banco: usuport              │
+│  Usuário: usuport_app        │
+│                              │
+└──────────────────────────────┘
 ```
-[Windows: navegador + Streamlit]  --- rede, TCP 3306 --->  [VirtualBox: VM Alpine Linux + MariaDB]
-```
 
-- **VM:** Alpine_0411.ova, com a placa de rede em **modo Bridge**
-- **Banco:** MariaDB, banco `usuport`, usuário `usuport_app`
-- **Aplicação:** Python + Streamlit + PyMySQL, executada no Windows
+### Tecnologias utilizadas
 
-## Arquivos
-
-| Arquivo | O que é |
+| Tecnologia | Finalidade |
 |---|---|
-| `USUPORT_DDL_FINAL.sql` | Cria as tabelas do modelo oficial |
-| `USUPORT_DML.sql` | Carga inicial: 43 acidentes da planilha da PRF e os dados do canal de atendimento |
-| `USUPORT_DQL.sql` | Consultas da apresentação (JOIN, GROUP BY, COUNT, AVG e filtro por data) |
-| `USUPORT_DML_UPDATE_DELETE.sql` | Exemplos de UPDATE e DELETE, para rodar na apresentação |
-| `limpar_provisorio.sql` | Apaga as tabelas do banco provisório usado nos primeiros testes |
-| `carregar_sql.py` | Executa um arquivo `.sql` no banco da VM a partir do Windows |
-| `conexao.py` | Conexão com o banco, compartilhada por todas as telas |
-| `consulta.py` | Tela de consulta de chamados (Read) |
-| `requirements.txt` | Bibliotecas Python necessárias |
+| Python | Linguagem da aplicação |
+| Streamlit | Interface web |
+| PyMySQL | Comunicação com o banco |
+| Pandas | Organização e apresentação dos dados |
+| MariaDB | Gerenciamento do banco de dados |
+| Alpine Linux | Sistema operacional da máquina virtual |
+| VirtualBox | Virtualização do servidor de banco |
+| SQL | Criação, manipulação e consulta dos dados |
 
-## Como rodar
+### Configuração do ambiente
 
-**1. Na VM** (login `root`): confira o IP com `ip a` e se o MariaDB está rodando com `rc-status`.
+- Máquina virtual: `Alpine_0411.ova`.
+- Virtualização: Oracle VirtualBox.
+- Rede: adaptador configurado em modo Bridge.
+- Banco de dados: `usuport`.
+- Usuário de aplicação: `usuport_app`.
+- Porta de comunicação: `3306`.
 
-**2. No Windows**, na pasta do projeto:
+> A máquina virtual e sua imagem OVA são recursos externos e não estão incluídos nos arquivos deste repositório.
 
+## Estrutura do banco de dados
+
+O modelo relacional contempla **16 tabelas**, organizadas para representar os registros de acidentes, seus envolvidos e as operações de atendimento.
+
+### Módulo de acidentes (PRF)
+
+- `LOCALIZACAO`
+- `UNIDADE_POLICIAL`
+- `CONDICAO_VIA_AMBIENTE`
+- `ACIDENTE`
+- `PESSOA`
+- `VEICULO`
+- `ENVOLVIMENTO`
+- `CAUSA_ACIDENTE`
+- `ACIDENTE_CAUSA`
+- `TIPO_ACIDENTE`
+- `ACIDENTE_TIPO`
+
+### Módulo de atendimento (USUPORT)
+
+- `ASSOCIADO`
+- `ATENDENTE`
+- `STATUS_CHAMADO`
+- `CHAMADO`
+- `HISTORICO_ATENDIMENTO`
+
+O relacionamento entre as tabelas utiliza chaves primárias, chaves estrangeiras, restrições de integridade e validação de valores, incluindo a restrição de prioridade dos chamados.
+
+A modelagem também contempla relacionamentos muitos-para-muitos, representados por tabelas associativas, como `ACIDENTE_CAUSA` e `ACIDENTE_TIPO`.
+
+## Dados utilizados
+
+A carga inicial foi construída a partir de uma planilha de acidentes da PRF.
+
+O conjunto disponibilizado no projeto contempla:
+
+- 43 acidentes rodoviários;
+- informações de localização, rodovia e quilometragem;
+- condições da via e do ambiente;
+- causas e tipos de acidentes;
+- pessoas, veículos e envolvimentos;
+- registros de associados, atendentes e chamados;
+- histórico de atendimento.
+
+Os dados são distribuídos entre as tabelas do modelo para preservar a organização relacional e a integridade referencial.
+
+## Aplicação
+
+A aplicação utiliza Streamlit para disponibilizar uma interface de consulta aos chamados armazenados no MariaDB.
+
+### Funcionalidades disponíveis
+
+- Conexão com o banco de dados pela barra lateral.
+- Consulta de chamados com relacionamentos entre tabelas (JOIN).
+- Filtro por status do chamado.
+- Filtro por prioridade.
+- Filtro por tipo de associado.
+- Filtro por período de abertura.
+- Pesquisa pelo título do chamado.
+- Indicadores de quantidade de chamados encontrados, em aberto, vinculados a acidentes e de prioridade alta ou crítica.
+- Resumo de chamados por status, incluindo quantidade e média de dias até o fechamento.
+- Visualização detalhada de um chamado.
+- Consulta do acidente relacionado, quando existente.
+- Exibição do histórico de atendimento.
+
+A conexão é realizada diretamente com a máquina virtual. O endereço IP, a porta, o usuário, o banco e a senha podem ser informados na interface.
+
+A senha não fica gravada no código-fonte.
+
+## Organização dos arquivos
+
+| Arquivo | Descrição |
+|---|---|
+| `NORMALIZAÇÃO.pdf` | Material de apoio referente à normalização do modelo de dados. |
+| `USUPORT_DDL_FINAL.sql` | Criação do banco de dados, das 16 tabelas, relacionamentos, restrições e índices. |
+| `USUPORT_DML.sql` | Carga inicial dos dados da PRF e dos registros do canal de atendimento. |
+| `USUPORT_DQL.sql` | Consultas SQL para análise dos chamados, acidentes e integração entre os módulos. |
+| `USUPORT_DML_UPDATE_DELETE.sql` | Exemplos de atualização e exclusão de registros para demonstração. |
+| `limpar_provisorio.sql` | Remoção das tabelas de testes do banco provisório utilizado nas etapas iniciais. |
+| `carregar_sql.py` | Ferramenta Python para executar scripts SQL remotamente na máquina virtual. |
+| `conexao.py` | Módulo compartilhado para conexão, consultas e operações de escrita no MariaDB. |
+| `consulta.py` | Aplicação Streamlit responsável pela interface de consulta de chamados. |
+| `requirements.txt` | Dependências Python necessárias para executar a aplicação. |
+
+## Instalação e execução
+
+### 1. Preparar a máquina virtual
+
+Inicie a máquina virtual Alpine Linux pelo VirtualBox.
+
+Entre no sistema utilizando o usuário `root`.
+
+Confira o endereço IP da máquina:
+
+```bash
+ip a
 ```
+
+Verifique se o serviço MariaDB está em execução:
+
+```bash
+rc-status
+```
+
+Também é possível consultar diretamente:
+
+```bash
+rc-service mariadb status
+```
+
+O MariaDB precisa aceitar conexões pela rede, utilizando a porta `3306`, e o usuário `usuport_app` deve possuir as permissões necessárias para acessar o banco `usuport` a partir do computador Windows.
+
+### 2. Preparar o ambiente Windows
+
+Com o Python instalado, abra o terminal na pasta do projeto.
+
+Instale as dependências:
+
+```bash
 python -m pip install -r requirements.txt
 ```
 
-**3. Carregar o banco**, uma vez só e nesta ordem:
+As bibliotecas instaladas são:
 
-```
-python carregar_sql.py limpar_provisorio.sql
+- Streamlit
+- PyMySQL
+- Pandas
+
+### 3. Criar e carregar o banco de dados
+
+A ferramenta `carregar_sql.py` permite executar os scripts diretamente na máquina virtual, sem precisar transferir os arquivos SQL para o Alpine.
+
+Execute os arquivos na seguinte ordem.
+
+**Primeiro: criação da estrutura**
+
+```bash
 python carregar_sql.py USUPORT_DDL_FINAL.sql
+```
+
+**Segundo: carga inicial dos dados**
+
+```bash
 python carregar_sql.py USUPORT_DML.sql
 ```
 
-O `carregar_sql.py` pede o IP da VM, o usuário (Enter aceita `usuport_app`) e a senha. O `limpar_provisorio.sql` só é necessário num banco que ainda tenha as tabelas provisórias.
+Durante a execução, informe:
 
-**4. Abrir a tela de consulta:**
+- IP da máquina virtual;
+- usuário do banco (pressione Enter para utilizar `usuport_app`);
+- senha do banco.
 
+A criação das tabelas deve ser realizada antes da inserção dos dados, respeitando as dependências entre as chaves estrangeiras.
+
+> Execute a carga inicial somente uma vez em cada banco recém-criado. Os scripts não foram preparados para duplicar a carga automaticamente.
+
+### Banco provisório
+
+Caso o banco ainda contenha tabelas dos primeiros testes, execute antes:
+
+```bash
+python carregar_sql.py limpar_provisorio.sql
 ```
+
+Esse arquivo remove somente as tabelas provisórias em letras minúsculas. Ele não apaga as tabelas oficiais do modelo.
+
+### 4. Executar a aplicação
+
+Na pasta do projeto, execute:
+
+```bash
 python -m streamlit run consulta.py
 ```
 
-O navegador abre em `http://localhost:8501`. Na barra lateral, digite o IP da VM e a senha e clique em **Conectar**.
+A aplicação será disponibilizada pelo navegador no endereço:
 
-**5. Na apresentação:** rode o `USUPORT_DQL.sql` e depois o `USUPORT_DML_UPDATE_DELETE.sql` (pelo DBeaver ou pelo `carregar_sql.py`).
+```text
+http://localhost:8501
+```
 
-## Telas novas
+Na barra lateral:
 
-Para criar uma tela que use o mesmo banco, comece por:
+1. Informe o IP da máquina virtual.
+2. Confira a porta `3306` e o banco `usuport`.
+3. Informe o usuário e a senha.
+4. Clique em **Conectar**.
+
+Após a conexão, a tela apresenta os chamados e seus respectivos filtros, indicadores e detalhes.
+
+## Consultas e demonstração SQL
+
+O projeto possui scripts específicos para demonstrar as operações de manipulação e consulta de dados.
+
+### USUPORT_DQL.sql
+
+Contém consultas que exploram recursos como:
+
+- `JOIN`;
+- `LEFT JOIN`;
+- `GROUP BY`;
+- `COUNT`;
+- `AVG`;
+- `SUM`;
+- `HAVING`;
+- `TIMESTAMPDIFF`;
+- filtros por período;
+- relacionamentos entre múltiplas tabelas.
+
+As consultas abrangem três áreas: atendimento, acidentes da PRF e integração entre chamados e acidentes.
+
+### USUPORT_DML_UPDATE_DELETE.sql
+
+Contém exemplos de atualização e exclusão de registros, com consultas `SELECT` antes e depois das operações para facilitar a demonstração dos resultados.
+
+Para a apresentação, recomenda-se seguir esta ordem:
+
+1. Executar `USUPORT_DQL.sql` para visualizar os dados originais.
+2. Executar `USUPORT_DML_UPDATE_DELETE.sql` para demonstrar `UPDATE` e `DELETE`.
+3. Comparar os resultados das operações.
+
+O script também apresenta um exemplo de exclusão de acidente dentro de uma transação, utilizando `ROLLBACK` para preservar os dados do teste.
+
+> Algumas operações alteram ou removem registros da carga inicial. Para repetir a demonstração desde o início, recrie o banco oficial e execute novamente o DDL e o DML.
+
+## Reutilização da conexão
+
+O módulo `conexao.py` centraliza as funções utilizadas para acessar o banco de dados.
+
+Ele disponibiliza:
+
+```python
+from conexao import barra_conexao, selecionar, executar
+```
+
+### Principais funções
+
+| Função | Responsabilidade |
+|---|---|
+| `barra_conexao()` | Exibe o formulário de conexão na barra lateral. |
+| `selecionar()` | Executa consultas SELECT e devolve os registros. |
+| `executar()` | Executa operações INSERT, UPDATE e DELETE. |
+
+### Exemplo de consulta
 
 ```python
 from conexao import barra_conexao, selecionar, executar
 
-con = barra_conexao()          # formulário de conexão na barra lateral
+con = barra_conexao()
+
 if con is not None:
-    linhas = selecionar(con, "SELECT * FROM CHAMADO WHERE id_status = %s", (1,))
-    ok, resultado = executar(con, "UPDATE CHAMADO SET id_status = %s WHERE id_chamado = %s", (2, 1))
+    linhas = selecionar(
+        con,
+        "SELECT * FROM CHAMADO WHERE id_status = %s",
+        (1,)
+    )
 ```
 
-`executar()` devolve `(True, id gerado)` ou `(False, mensagem)`, explicando a regra que o banco recusou (FK, CHECK, UNIQUE etc.).
+Para operações de escrita:
+
+```python
+ok, resultado = executar(
+    con,
+    "UPDATE CHAMADO SET id_status = %s WHERE id_chamado = %s",
+    (2, 1)
+)
+```
+
+A função `executar()` devolve uma tupla:
+
+- `(True, resultado)` quando a operação é concluída.
+- `(False, mensagem)` quando uma regra de integridade do banco impede a operação.
+
+O segundo valor corresponde ao `lastrowid` disponibilizado pelo cursor, sendo útil principalmente em operações de INSERT.
 
 ## Equipe
 
-Gustavo Pitangueira, Suzana Ísis, Radija Menezes, Manuela Souza, João Carvalho, Cassio Bustamante e Lucas Quezado.
+Projeto desenvolvido em grupo para a disciplina Banco de Dados, como parte da avaliação A3 da UNIFACS.
+
+- Gustavo Pitangueira
+- Suzana Ísis
+- Radija Menezes
+- Manuela Souza
+- João Carvalho
+- Cassio Bustamante
+- Lucas Quezado
+
+---
+
+Trabalho acadêmico de Banco de Dados  
+UNIFACS | 2026.2
