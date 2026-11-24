@@ -6,9 +6,11 @@ Segue o mesmo padrão do exemplo do professor (farmacia_streamlit.py):
     [Navegador + Streamlit no Windows]  --- TCP, porta 3306 --->  [VM Alpine no VirtualBox: MariaDB]
 
 - O IP do Alpine e a senha são digitados na tela; a senha nunca fica gravada em arquivo.
-- Arquivo COMPARTILHADO por todas as telas (consulta, cadastro, andamento e exclusão).
+- Arquivo COMPARTILHADO por todas as telas (consulta, cadastro, agendamento e exclusão).
   Basta chamar barra_conexao() no início de cada tela.
 """
+import secrets
+
 import pymysql
 import streamlit as st
 
@@ -32,7 +34,7 @@ ERROS_DE_REGRA = (pymysql.err.IntegrityError, pymysql.err.OperationalError)
 ERROS = {
     1048: "NOT NULL: campo obrigatório",
     1062: "UNIQUE/PK: valor repetido",
-    1451: "FK: há registros apontando para este (ex.: chamados de um porto)",
+    1451: "FK: há registros apontando para este (ex.: chamados de um associado)",
     1452: "FK: o registro apontado não existe",
     4025: "CHECK: valor fora do domínio permitido",
 }
@@ -59,16 +61,21 @@ def selecionar(con, sql, params=None):
     return linhas
 
 
-def executar(con, sql, params):
+def executar_transacao(con, comandos):
     """
-    Roda INSERT, UPDATE ou DELETE.
-    Devolve (True, id gerado) ou (False, texto explicando a regra que foi violada).
+    Roda vários INSERT/UPDATE/DELETE como UMA transação: ou todos são gravados, ou nenhum.
+    Ex.: excluir um chamado exige apagar antes o histórico dele (tabela filha).
+    Se o segundo comando falhar, o ROLLBACK desfaz também o primeiro.
+
+    comandos: lista de pares (sql, params).
+    Devolve (True, id gerado pelo último comando) ou (False, texto explicando a regra violada).
     """
     try:
         with con.cursor() as cur:
-            cur.execute(sql, params)
+            for sql, params in comandos:
+                cur.execute(sql, params)
             novo_id = cur.lastrowid
-        con.commit()
+        con.commit()  # grava tudo de uma vez
         return True, novo_id
     except ERROS_DE_REGRA as e:
         con.rollback()  # desfaz: os dados antigos ficam intactos
@@ -81,6 +88,55 @@ def executar(con, sql, params):
         return False, f"Dado inválido: {e.args[1]}"
 
 
+def executar(con, sql, params):
+    """
+    Roda um único INSERT, UPDATE ou DELETE.
+    Devolve (True, id gerado) ou (False, texto explicando a regra que foi violada).
+    """
+    return executar_transacao(con, [(sql, params)])
+
+
+# =====================================================================================
+# Mensagem que sobrevive ao st.rerun()
+# Depois de gravar, as telas recarregam (st.rerun) para atualizar listas e tabelas.
+# A mensagem de sucesso/erro é guardada antes e mostrada no recarregamento seguinte.
+# =====================================================================================
+def guardar_mensagem(ok, texto):
+    st.session_state.mensagem = (ok, texto)
+
+
+def mostrar_mensagem():
+    if "mensagem" in st.session_state:
+        ok, texto = st.session_state.pop("mensagem")
+        (st.success if ok else st.error)(texto)
+
+
+# =====================================================================================
+# Manter conectado ao recarregar a página (F5) e ao trocar de tela
+# O F5 cria uma sessão nova do Streamlit e apaga o st.session_state. Por isso a conexão
+# aberta fica guardada no servidor do Streamlit, identificada por um código aleatório
+# que vai na URL (?sessao=...). A senha não é gravada em lugar nenhum.
+# =====================================================================================
+@st.cache_resource
+def _conexoes_abertas():
+    """Dicionário {código da sessão: (conexão, destino)}, compartilhado entre recarregamentos."""
+    return {}
+
+
+def _lembrar(con, destino):
+    codigo = secrets.token_urlsafe(16)
+    _conexoes_abertas()[codigo] = (con, destino)
+    st.session_state.sessao = codigo
+    st.query_params["sessao"] = codigo
+
+
+def _esquecer():
+    codigo = st.session_state.pop("sessao", None) or st.query_params.get("sessao")
+    _conexoes_abertas().pop(codigo, None)
+    st.query_params.pop("sessao", None)
+    st.session_state.pop("con", None)
+
+
 # =====================================================================================
 # Formulário de conexão (barra lateral) - igual para todas as telas
 # =====================================================================================
@@ -88,6 +144,15 @@ def barra_conexao():
     """Mostra o formulário de conexão. Devolve a conexão ativa ou None."""
     st.sidebar.header("Conexão com o Alpine")
     con = st.session_state.get("con")
+
+    # Página recarregada (F5): recupera a conexão pelo código da URL
+    if con is None:
+        codigo = st.query_params.get("sessao")
+        salvo = _conexoes_abertas().get(codigo)
+        if salvo:
+            con, st.session_state.destino = salvo
+            st.session_state.con = con
+            st.session_state.sessao = codigo
 
     # Ainda não conectado: mostra o formulário
     if con is None:
@@ -107,6 +172,7 @@ def barra_conexao():
             try:
                 st.session_state.con = abrir_conexao(host.strip(), int(porta), usuario.strip(), senha, banco.strip())
                 st.session_state.destino = f"{host.strip()}:{int(porta)} · banco {banco.strip()}"
+                _lembrar(st.session_state.con, st.session_state.destino)
                 st.rerun()
             except pymysql.err.Error as e:
                 codigo = e.args[0] if e.args else "?"
@@ -114,11 +180,15 @@ def barra_conexao():
                 st.sidebar.warning(DICAS_CONEXAO.get(codigo, "Confira os dados da conexão."))
         return None
 
+    # Ao trocar de tela o Streamlit limpa a URL: devolve o código para o F5 continuar funcionando
+    if st.session_state.get("sessao") and st.query_params.get("sessao") != st.session_state.sessao:
+        st.query_params["sessao"] = st.session_state.sessao
+
     # Já conectado: confere se a conexão continua viva (a VM pode ter sido reiniciada)
     try:
         con.ping(reconnect=False)
     except pymysql.err.Error as e:
-        del st.session_state["con"]
+        _esquecer()
         st.session_state.aviso = f"A conexão caiu: {e}. Conecte de novo."
         st.rerun()
 
@@ -126,6 +196,6 @@ def barra_conexao():
     st.sidebar.caption("MariaDB " + selecionar(con, "SELECT VERSION() AS v")[0]["v"])
     if st.sidebar.button("Desconectar"):
         con.close()
-        del st.session_state["con"]
+        _esquecer()
         st.rerun()
     return con

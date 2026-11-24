@@ -98,7 +98,7 @@ A carga inicial foi construída a partir de uma planilha de acidentes da PRF.
 
 O conjunto disponibilizado no projeto contempla:
 
-- 43 acidentes rodoviários;
+- 43 acidentes rodoviários completos (296 das 499 linhas da planilha, respeitando o limite de 300 linhas);
 - informações de localização, rodovia e quilometragem;
 - condições da via e do ambiente;
 - causas e tipos de acidentes;
@@ -133,17 +133,35 @@ A senha não fica gravada no código-fonte.
 
 ## Organização dos arquivos
 
+```text
+Usuporte/
+├── app/            aplicação Streamlit (telas e conexão com o banco)
+│   └── pages/      telas extras, que aparecem no menu lateral
+├── sql/            scripts SQL (DDL, DML, DQL e exemplos)
+├── ferramentas/    scripts de apoio (carregar SQL na VM e gerar o DML)
+├── dados/          planilha da PRF usada na carga
+└── docs/           material de apoio
+```
+
 | Arquivo | Descrição |
 |---|---|
-| `NORMALIZAÇÃO.pdf` | Material de apoio referente à normalização do modelo de dados. |
-| `USUPORT_DDL_FINAL.sql` | Criação do banco de dados, das 16 tabelas, relacionamentos, restrições e índices. |
-| `USUPORT_DML.sql` | Carga inicial dos dados da PRF e dos registros do canal de atendimento. |
-| `USUPORT_DQL.sql` | Consultas SQL para análise dos chamados, acidentes e integração entre os módulos. |
-| `USUPORT_DML_UPDATE_DELETE.sql` | Exemplos de atualização e exclusão de registros para demonstração. |
-| `limpar_provisorio.sql` | Remoção das tabelas de testes do banco provisório utilizado nas etapas iniciais. |
-| `carregar_sql.py` | Ferramenta Python para executar scripts SQL remotamente na máquina virtual. |
-| `conexao.py` | Módulo compartilhado para conexão, consultas e operações de escrita no MariaDB. |
-| `consulta.py` | Aplicação Streamlit responsável pela interface de consulta de chamados. |
+| `app/consulta.py` | Aplicação Streamlit responsável pela interface de consulta de chamados (tela inicial). |
+| `app/conexao.py` | Módulo compartilhado para conexão, consultas e operações de escrita no MariaDB. |
+| `app/pages/1_Cadastro.py` | Tela de cadastro (Create) de chamados e associados. |
+| `app/pages/2_Agendamento.py` | Tela de agendamento de atendimentos: grava o histórico e atualiza o chamado numa transação. |
+| `app/pages/3_Exclusao.py` | Tela de exclusão (Delete) e inativação: cancelar ou excluir chamados e excluir associados. |
+| `sql/USUPORT_DDL_FINAL.sql` | Criação do banco de dados, das 16 tabelas, relacionamentos, restrições e índices. |
+| `sql/USUPORT_DML.sql` | Carga inicial dos dados da PRF e dos registros do canal de atendimento (gerado pelo `gerar_dml.py`). |
+| `sql/dados_ficticios.sql` | Associados, atendentes, status, chamados e histórico fictícios, incluídos no final do DML. |
+| `sql/USUPORT_DQL.sql` | Consultas SQL para análise dos chamados, acidentes e integração entre os módulos. |
+| `sql/USUPORT_DML_UPDATE_DELETE.sql` | Exemplos de atualização e exclusão de registros para demonstração. |
+| `sql/limpar_provisorio.sql` | Remoção das tabelas de testes do banco provisório utilizado nas etapas iniciais. |
+| `ferramentas/carregar_sql.py` | Ferramenta Python para executar scripts SQL remotamente na máquina virtual. |
+| `ferramentas/gerar_dml.py` | Lê a planilha da PRF (até 300 linhas, só acidentes completos), normaliza os dados nas tabelas do modelo e gera o `sql/USUPORT_DML.sql`. |
+| `dados/acidentes2024_todas_causas_tipos_Usuport.xlsx` | Planilha de acidentes da PRF, origem dos dados. |
+| `docs/NORMALIZAÇÃO.pdf` | Material de apoio referente à normalização do modelo de dados. |
+| `docs/DICIONÁRIO DE DADOS – DER USUPORT.pdf` | Dicionário de dados do modelo. |
+| `docs/DER USUPORT CORRIGIDO.pdf` | Diagrama entidade-relacionamento (DER) do banco. |
 | `requirements.txt` | Dependências Python necessárias para executar a aplicação. |
 
 ## Instalação e execução
@@ -192,20 +210,20 @@ As bibliotecas instaladas são:
 
 ### 3. Criar e carregar o banco de dados
 
-A ferramenta `carregar_sql.py` permite executar os scripts diretamente na máquina virtual, sem precisar transferir os arquivos SQL para o Alpine.
+Todos os comandos abaixo são executados na pasta `Usuporte`. A ferramenta `ferramentas/carregar_sql.py` permite executar os scripts diretamente na máquina virtual, sem precisar transferir os arquivos SQL para o Alpine.
 
 Execute os arquivos na seguinte ordem.
 
 **Primeiro: criação da estrutura**
 
 ```bash
-python carregar_sql.py USUPORT_DDL_FINAL.sql
+python ferramentas/carregar_sql.py sql/USUPORT_DDL_FINAL.sql
 ```
 
 **Segundo: carga inicial dos dados**
 
 ```bash
-python carregar_sql.py USUPORT_DML.sql
+python ferramentas/carregar_sql.py sql/USUPORT_DML.sql
 ```
 
 Durante a execução, informe:
@@ -223,7 +241,7 @@ A criação das tabelas deve ser realizada antes da inserção dos dados, respei
 Caso o banco ainda contenha tabelas dos primeiros testes, execute antes:
 
 ```bash
-python carregar_sql.py limpar_provisorio.sql
+python ferramentas/carregar_sql.py sql/limpar_provisorio.sql
 ```
 
 Esse arquivo remove somente as tabelas provisórias em letras minúsculas. Ele não apaga as tabelas oficiais do modelo.
@@ -233,7 +251,7 @@ Esse arquivo remove somente as tabelas provisórias em letras minúsculas. Ele n
 Na pasta do projeto, execute:
 
 ```bash
-python -m streamlit run consulta.py
+python -m streamlit run app/consulta.py
 ```
 
 A aplicação será disponibilizada pelo navegador no endereço:
@@ -341,7 +359,7 @@ O segundo valor corresponde ao `lastrowid` disponibilizado pelo cursor, sendo ú
 Projeto desenvolvido em grupo para a disciplina Banco de Dados, como parte da avaliação A3 da UNIFACS.
 
 - Gustavo Pitangueira
-- Suzana Ísis
+- Suzana Isis
 - Radija Menezes
 - Manuela Souza
 - João Carvalho

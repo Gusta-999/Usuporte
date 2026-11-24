@@ -5,9 +5,12 @@ Versão para o modelo oficial do projeto (USUPORT_DDL_FINAL.sql + USUPORT_DML.sq
 Arquitetura (mesma do exemplo do professor):
   [Navegador + este programa no Windows]  --- TCP, porta 3306 --->  [VM Alpine no VirtualBox: MariaDB]
 
-Como rodar (no Windows, no Prompt de Comando ou PowerShell):
+Como rodar (no Windows, no Prompt de Comando ou PowerShell, na pasta Usuporte):
   python -m pip install -r requirements.txt
-  python -m streamlit run consulta.py
+  python -m streamlit run app/consulta.py
+
+As outras telas (cadastro, agendamento e exclusão) ficam em app/pages/ e aparecem
+sozinhas no menu lateral.
 
 O IP do Alpine e a senha são digitados na barra lateral.
 Obs.: no MariaDB da VM (Linux) os nomes de tabela diferenciam maiúsculas,
@@ -76,8 +79,10 @@ def buscar_chamados(con, status, prioridades, tipos_associado, periodo, busca):
         sql += " AND DATE(c.data_abertura) BETWEEN %s AND %s"
         params += [periodo[0], periodo[1]]
 
+    # Busca sem diferenciar acentos nem maiúsculas: com a collation unicode_ci,
+    # "solicitação", "solicitacao" e "SOLICITACAO" encontram o mesmo chamado.
     if busca:
-        sql += " AND c.titulo LIKE %s"
+        sql += " AND c.titulo COLLATE utf8mb4_unicode_ci LIKE %s"
         params.append(f"%{busca}%")
 
     sql += " ORDER BY c.data_abertura DESC"
@@ -118,7 +123,7 @@ def filtros(con):
         value=(limites["ini"] or date.today(), limites["fim"] or date.today()),
         format="DD/MM/YYYY",
     )
-    busca = st.sidebar.text_input("Buscar no título").strip()
+    busca = st.sidebar.text_input("Buscar no título", help="Não diferencia acentos nem maiúsculas.").strip()
     return status, prioridades, tipos, periodo, busca
 
 

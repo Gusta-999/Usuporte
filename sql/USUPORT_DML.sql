@@ -1,6 +1,7 @@
 -- USUPORT | DML - carga inicial (somente INSERTs)
 -- Origem: acidentes2024_todas_causas_tipos_Usuport (499 linhas na planilha)
 -- Carga: 43 acidentes completos (296 linhas da planilha, limite de 300)
+-- Arquivo gerado pelo gerar_dml.py (nao edite a mao: altere a planilha e gere de novo).
 -- Execute depois do USUPORT_DDL_FINAL.sql, em banco vazio.
 -- Todos os INSERTs rodam em uma unica transacao (COMMIT ao final).
 -- Os exemplos de UPDATE e DELETE ficam em USUPORT_DML_UPDATE_DELETE.sql (rodar na apresentacao).

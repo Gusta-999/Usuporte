@@ -1,10 +1,10 @@
 """
 carregar_sql.py - Executa um arquivo .sql no MariaDB da VM Alpine, a partir do Windows.
 
-Serve para rodar o teste_provisorio.sql agora e, depois, o DDL (Radija) e o DML (Lucas).
+Serve para rodar o DDL (Radija), o DML (Lucas) e os demais scripts da pasta sql/.
 
-Como usar (no Prompt de Comando, na pasta do projeto):
-  python carregar_sql.py teste_provisorio.sql
+Como usar (no Prompt de Comando, na pasta Usuporte):
+  python ferramentas/carregar_sql.py sql/USUPORT_DDL_FINAL.sql
 O programa pergunta o IP, o usuário e a senha.
 """
 import getpass
@@ -50,7 +50,7 @@ def comandos_do_arquivo(caminho):
 
 def main():
     if len(sys.argv) != 2:
-        print("Uso: python carregar_sql.py arquivo.sql")
+        print("Uso: python ferramentas/carregar_sql.py sql/arquivo.sql")
         sys.exit(1)
 
     host = input("IP do Alpine: ").strip()
