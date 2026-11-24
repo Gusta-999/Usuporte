@@ -46,6 +46,7 @@ A solução utiliza uma arquitetura distribuída, na qual a aplicação é execu
 | Streamlit | Interface web |
 | PyMySQL | Comunicação com o banco |
 | Pandas | Organização e apresentação dos dados |
+| openpyxl | Leitura da planilha da PRF pelo `gerar_dml.py` |
 | MariaDB | Gerenciamento do banco de dados |
 | Alpine Linux | Sistema operacional da máquina virtual |
 | VirtualBox | Virtualização do servidor de banco |
@@ -207,6 +208,7 @@ As bibliotecas instaladas são:
 - Streamlit
 - PyMySQL
 - Pandas
+- openpyxl (usado só pelo `gerar_dml.py`, para ler a planilha)
 
 ### 3. Criar e carregar o banco de dados
 
